@@ -272,15 +272,28 @@ public class NetworkStackUtils {
             "apf_handle_light_doze_force_disable";
 
     /**
+     * Kill switch flag to disable the feature of polling counters in Apf.
+     */
+    public static final String APF_POLLING_COUNTERS_FORCE_DISABLE =
+            "apf_polling_counters_force_disable";
+
+    /**
      * Kill switch flag to disable the feature of skipping Tcp socket info polling when light
      * doze mode is enabled.
      */
     public static final String SKIP_TCP_POLL_IN_LIGHT_DOZE = "skip_tcp_poll_in_light_doze_mode";
 
     /**
-     * Kill switch flag to disable the feature of re-evaluate when network resumes.
+     * Experiment flag to enable the feature of re-evaluate when network resumes.
      */
     public static final String REEVALUATE_WHEN_RESUME = "reevaluate_when_resume";
+
+    /**
+     * Kill switch flag to disable the feature of ignoring Tcp socket info for uids which
+     * networking are blocked.
+     */
+    public static final String IGNORE_TCP_INFO_FOR_BLOCKED_UIDS =
+            "ignore_tcp_info_for_blocked_uids";
 
     static {
         System.loadLibrary("networkstackutilsjni");

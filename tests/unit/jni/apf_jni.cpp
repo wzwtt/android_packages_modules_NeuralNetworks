@@ -40,8 +40,8 @@ static int run_apf_interpreter(int apf_version, uint8_t* program,
     return accept_packet(program, program_len, ram_len, packet, packet_len,
                          filter_age);
   } else {
-    return apf_run(program, program_len, ram_len, packet, packet_len,
-                         filter_age);
+    return apf_run(nullptr, program, program_len, ram_len, packet, packet_len,
+                         filter_age << 14);
   }
 }
 

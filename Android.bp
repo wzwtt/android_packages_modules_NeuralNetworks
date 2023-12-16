@@ -89,7 +89,7 @@ java_defaults {
     sdk_version: module_34_version,
     libs: [
         "framework-configinfrastructure",
-        "framework-connectivity",
+        "framework-connectivity.stubs.module_lib",
         "framework-connectivity-t",
         "framework-statsd",
         "framework-wifi",
@@ -311,6 +311,7 @@ java_defaults {
         "androidx.annotation_annotation",
         "modules-utils-build_system",
         "modules-utils-preconditions",
+        "modules-utils-shell-command-handler",
         "modules-utils-statemachine",
         "netd_aidl_interface-lateststable-java",
         "networkstack-client",
@@ -319,9 +320,9 @@ java_defaults {
         "datastallprotosnano",
         "statsprotos",
         "captiveportal-lib",
-        "net-utils-device-common",
         "net-utils-device-common-ip",
         "net-utils-device-common-netlink",
+        "net-utils-device-common-struct",
     ],
 }
 
@@ -339,7 +340,6 @@ android_library {
     ],
     static_libs: [
         "NetworkStackApiCurrentShims",
-        "net-utils-device-common-struct",
     ],
     manifest: "AndroidManifestBase.xml",
     visibility: [
@@ -360,7 +360,6 @@ android_library {
     ],
     static_libs: [
         "NetworkStackApiStableShims",
-        "net-utils-device-common-struct",
     ],
     manifest: "AndroidManifestBase.xml",
     visibility: [
@@ -389,6 +388,7 @@ java_library {
         "modules-utils-build",
         "net-utils-framework-common",
         "networkstack-client",
+        "net-utils-device-common",
     ],
     // If this library is ever used outside of tests, it should not use "Dhcp*Packet", and specify
     // its contents explicitly.
