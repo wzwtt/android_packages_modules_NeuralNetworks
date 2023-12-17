@@ -143,24 +143,134 @@ public class ApfGenerator {
     }
 
     private static class IntImmediate {
+        public final IntImmediateType mImmediateType;
+        // TODO: remove mSigned and mImmSize fields in follow up CL
         public final boolean mSigned;
-        public final byte mImmSize;
+        public final int mImmSize;
         public final int mValue;
 
         IntImmediate(int value, boolean signed) {
             this(value, signed, calculateImmSize(value, signed));
         }
 
-        IntImmediate(int value, boolean signed, byte size) {
+        // TODO: Remove this constructor in follow up CLs.
+        IntImmediate(int value, boolean signed, int size) {
             mValue = value;
             mSigned = signed;
             mImmSize = size;
+            if (signed) {
+                mImmediateType = IntImmediateType.INDETERMINATE_SIZE_SIGNED;
+            } else {
+                mImmediateType = IntImmediateType.INDETERMINATE_SIZE_UNSIGNED;
+            }
+        }
+
+        IntImmediate(int value, IntImmediateType type) {
+            mImmediateType = type;
+            mValue = value;
+            // The following logic for initialize mSigned and mImmSize could be removed after we
+            // remove those two variable
+            switch (type) {
+                case INDETERMINATE_SIZE_SIGNED:
+                case SIGNED_8:
+                case SIGNED_BE16:
+                case SIGNED_BE32:
+                    mSigned = true;
+                    break;
+                default:
+                    mSigned = false;
+            }
+            mImmSize = calculateImmSize(value, mSigned);
+        }
+
+        private int calculateIndeterminateSize() {
+            switch (mImmediateType) {
+                case INDETERMINATE_SIZE_SIGNED:
+                    return calculateImmSize(mValue, true /* signed */);
+                case INDETERMINATE_SIZE_UNSIGNED:
+                    return calculateImmSize(mValue, false /* signed */);
+                default:
+                    // For IMM with determinate size, return 0 to allow Math.max() calculation in
+                    // caller function.
+                    return 0;
+            }
+        }
+
+        private int getEncodingSize(int immFieldSize) {
+            switch (mImmediateType) {
+                case SIGNED_8:
+                case UNSIGNED_8:
+                    return 1;
+                case SIGNED_BE16:
+                case UNSIGNED_BE16:
+                    return 2;
+                case SIGNED_BE32:
+                case UNSIGNED_BE32:
+                    return 4;
+                case INDETERMINATE_SIZE_SIGNED:
+                case INDETERMINATE_SIZE_UNSIGNED: {
+                    int minSizeRequired = calculateIndeterminateSize();
+                    if (minSizeRequired > immFieldSize) {
+                        throw new IllegalStateException(
+                                String.format("immFieldSize: %d is too small to encode value %d",
+                                        immFieldSize, mValue));
+                    }
+                    return immFieldSize;
+                }
+            }
+            throw new IllegalStateException("UnhandledInvalid IntImmediateType: " + mImmediateType);
+        }
+
+        private int writeValue(byte[] bytecode, Integer writingOffset, int immFieldSize) {
+            return Instruction.writeValue(mValue, bytecode, writingOffset,
+                    getEncodingSize(immFieldSize));
+        }
+
+        public static IntImmediate newSignedIndeterminate(int imm) {
+            return new IntImmediate(imm, IntImmediateType.INDETERMINATE_SIZE_SIGNED);
+        }
+
+        public static IntImmediate newUnsignedIndeterminate(long imm) {
+            // upperBound is 2^32 - 1
+            checkRange("Unsigned Indeterminate IMM", imm, 0 /* lowerBound */,
+                    4294967295L /* upperBound */);
+            return new IntImmediate((int) imm, IntImmediateType.INDETERMINATE_SIZE_UNSIGNED);
+        }
+
+        public static IntImmediate newSigned8(byte imm) {
+            checkRange("Signed8 IMM", imm, Byte.MIN_VALUE, Byte.MAX_VALUE);
+            return new IntImmediate(imm, IntImmediateType.SIGNED_8);
+        }
+
+        public static IntImmediate newUnsigned8(int imm) {
+            checkRange("Unsigned8 IMM", imm, 0, 255);
+            return new IntImmediate(imm, IntImmediateType.UNSIGNED_8);
+        }
+
+        public static IntImmediate newSignedBe16(short imm) {
+            return new IntImmediate(imm, IntImmediateType.SIGNED_BE16);
+        }
+
+        public static IntImmediate newUnsignedBe16(int imm) {
+            checkRange("UnsignedBe16 IMM", imm, 0, 65535);
+            return new IntImmediate(imm, IntImmediateType.UNSIGNED_BE16);
+        }
+
+        public static IntImmediate newSignedBe32(int imm) {
+            return new IntImmediate(imm, IntImmediateType.SIGNED_BE32);
+        }
+
+        public static IntImmediate newUnsignedBe32(long imm) {
+            // upperBound is 2^32 - 1
+            checkRange("UnsignedBe32 IMM", imm, 0 /* lowerBound */,
+                    4294967295L /* upperBound */);
+            return new IntImmediate((int) imm, IntImmediateType.UNSIGNED_BE32);
         }
 
         @Override
         public String toString() {
-            return "Immediate{" + "mSigned=" + mSigned + ", mImmSize=" + mImmSize + ", mValue="
-                    + mValue + '}';
+            return "IntImmediate{" + "mImmediateType=" + mImmediateType + ", mSigned=" + mSigned
+                    + ", mImmSize=" + mImmSize + ", mValue=" + mValue + '}';
         }
     }
 
@@ -169,7 +279,7 @@ public class ApfGenerator {
         private final byte mRegister; // A "Register" value.
         public final List<IntImmediate> mIntImms = new ArrayList<>();
         // When mOpcode is a jump:
-        private byte mTargetLabelSize;
+        private int mTargetLabelSize;
         private String mTargetLabel;
         // When mOpcode == Opcodes.LABEL:
         private String mLabel;
@@ -233,11 +343,12 @@ public class ApfGenerator {
                 return 0;
             }
             int size = 1;
-            byte maxImmSize = getMaxImmSize();
-            // For the copy opcode, the last imm is the length field is always 1 byte
-            size += mIntImms.size() * maxImmSize;
+            int indeterminateSize = calculateRequiredIndeterminateSize();
+            for (IntImmediate imm : mIntImms) {
+                size += imm.getEncodingSize(indeterminateSize);
+            }
             if (mTargetLabel != null) {
-                size += maxImmSize;
+                size += indeterminateSize;
             }
             if (mBytesImm != null) {
                 size += mBytesImm.length;
@@ -265,8 +376,8 @@ public class ApfGenerator {
         /**
          * Assemble value for instruction size field.
          */
-        private byte generateImmSizeField() {
-            byte immSize = getMaxImmSize();
+        private int generateImmSizeField() {
+            int immSize = calculateRequiredIndeterminateSize();
             // Encode size field to fit in 2 bits: 0->0, 1->1, 2->2, 3->4.
             return immSize == 4 ? 3 : immSize;
         }
@@ -275,7 +386,7 @@ public class ApfGenerator {
          * Assemble first byte of generated instruction.
          */
         private byte generateInstructionByte() {
-            byte sizeField = generateImmSizeField();
+            int sizeField = generateImmSizeField();
             return (byte)((mOpcode << 3) | (sizeField << 1) | mRegister);
         }
 
@@ -288,7 +399,7 @@ public class ApfGenerator {
          * be sign extended and the truncation should simply throw away their signed
          * upper bits.
          */
-        private int writeValue(int value, byte[] bytecode, int writingOffset, byte immSize) {
+        private static int writeValue(int value, byte[] bytecode, int writingOffset, int immSize) {
             for (int i = immSize - 1; i >= 0; i--) {
                 bytecode[writingOffset++] = (byte)((value >> (i * 8)) & 255);
             }
@@ -304,13 +415,13 @@ public class ApfGenerator {
             }
             int writingOffset = offset;
             bytecode[writingOffset++] = generateInstructionByte();
-            byte maxImmSize = getMaxImmSize();
+            int indeterminateSize = calculateRequiredIndeterminateSize();
             if (mTargetLabel != null) {
                 writingOffset = writeValue(calculateTargetLabelOffset(), bytecode, writingOffset,
-                        maxImmSize);
+                        indeterminateSize);
             }
             for (IntImmediate imm : mIntImms) {
-                writingOffset = writeValue(imm.mValue, bytecode, writingOffset, maxImmSize);
+                writingOffset = imm.writeValue(bytecode, writingOffset, indeterminateSize);
             }
             if (mBytesImm != null) {
                 System.arraycopy(mBytesImm, 0, bytecode, writingOffset, mBytesImm.length);
@@ -323,17 +434,15 @@ public class ApfGenerator {
         }
 
         /**
-         * Calculate the size of either the immediate fields or the target label field, if either is
-         * present. Most instructions have either immediates or a target label field, but for the
-         * instructions that have both, the size of the target label field must be the same as the
-         * size of the immediate fields, because there is only one length field in the instruction
-         * byte, hence why this function simply takes the maximum of those sizes, so neither is
-         * truncated.
+         * Calculates the maximum indeterminate size of all IMMs in this instruction.
+         * <p>
+         * This method finds the largest size needed to encode any indeterminate-sized IMMs in
+         * the instruction. This size will be stored in the immLen field.
          */
-        private byte getMaxImmSize() {
-            byte maxSize = mTargetLabelSize;
-            for (int i = 0; i < mIntImms.size(); ++i) {
-                maxSize = (byte) Math.max(maxSize, mIntImms.get(i).mImmSize);
+        private int calculateRequiredIndeterminateSize() {
+            int maxSize = mTargetLabelSize;
+            for (IntImmediate imm : mIntImms) {
+                maxSize = Math.max(maxSize, imm.calculateIndeterminateSize());
             }
             return maxSize;
         }
@@ -1143,8 +1252,8 @@ public class ApfGenerator {
         }
     }
 
-    private void checkRange(@NonNull String variableName, int value, int lowerBound,
-            int upperBound) {
+    private static void checkRange(@NonNull String variableName, long value, long lowerBound,
+            long upperBound) {
         if (value >= lowerBound && value <= upperBound) {
             return;
         }
@@ -1199,7 +1308,7 @@ public class ApfGenerator {
     /**
      * Calculate the size of the imm.
      */
-    private static byte calculateImmSize(int imm, boolean signed) {
+    private static int calculateImmSize(int imm, boolean signed) {
         if (imm == 0) {
             return 0;
         }
