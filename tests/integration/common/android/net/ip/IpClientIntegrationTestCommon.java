@@ -4137,12 +4137,6 @@ public abstract class IpClientIntegrationTestCommon {
         return ns;
     }
 
-    // Override this function with disabled experiment flag by default, in order not to
-    // affect those tests which are just related to basic IpReachabilityMonitor infra.
-    private void prepareIpReachabilityMonitorTest() throws Exception {
-        prepareIpReachabilityMonitorTest(false /* isMulticastResolicitEnabled */);
-    }
-
     private void assertNotifyNeighborLost(Inet6Address targetIp, NudEventType eventType)
             throws Exception {
         // For root test suite, rely on the IIpClient aidl interface version constant defined in
@@ -4175,8 +4169,7 @@ public abstract class IpClientIntegrationTestCommon {
         verify(mCb, never()).onReachabilityLost(any());
     }
 
-    private void prepareIpReachabilityMonitorTest(boolean isMulticastResolicitEnabled)
-            throws Exception {
+    private void prepareIpReachabilityMonitorTest() throws Exception {
         final ScanResultInfo info = makeScanResultInfo(TEST_DEFAULT_SSID, TEST_DEFAULT_BSSID);
         ProvisioningConfiguration config = new ProvisioningConfiguration.Builder()
                 .withLayer2Information(new Layer2Information(TEST_L2KEY, TEST_CLUSTER,
@@ -4185,8 +4178,6 @@ public abstract class IpClientIntegrationTestCommon {
                 .withDisplayName(TEST_DEFAULT_SSID)
                 .withoutIPv4()
                 .build();
-        setFeatureEnabled(NetworkStackUtils.IP_REACHABILITY_MCAST_RESOLICIT_VERSION,
-                isMulticastResolicitEnabled);
         startIpClientProvisioning(config);
         verify(mCb, timeout(TEST_TIMEOUT_MS)).setFallbackMulticastFilter(true);
         doIpv6OnlyProvisioning();
@@ -4200,10 +4191,14 @@ public abstract class IpClientIntegrationTestCommon {
 
         final List<NeighborSolicitation> nsList = waitForMultipleNeighborSolicitations();
         final int expectedNudSolicitNum = readNudSolicitNumPostRoamingFromResource();
-        assertEquals(expectedNudSolicitNum, nsList.size());
-        for (NeighborSolicitation ns : nsList) {
+        int expectedSize = expectedNudSolicitNum + NUD_MCAST_RESOLICIT_NUM;
+        assertEquals(expectedSize, nsList.size());
+        for (NeighborSolicitation ns : nsList.subList(0, expectedNudSolicitNum)) {
             assertUnicastNeighborSolicitation(ns, ROUTER_MAC /* dstMac */,
                     ROUTER_LINK_LOCAL /* dstIp */, ROUTER_LINK_LOCAL /* targetIp */);
+        }
+        for (NeighborSolicitation ns : nsList.subList(expectedNudSolicitNum, nsList.size())) {
+            assertMulticastNeighborSolicitation(ns, ROUTER_LINK_LOCAL /* targetIp */);
         }
     }
 
@@ -4239,43 +4234,10 @@ public abstract class IpClientIntegrationTestCommon {
         assertNeverNotifyNeighborLost();
     }
 
-    private void runIpReachabilityMonitorMcastResolicitProbeFailedTest() throws Exception {
-        prepareIpReachabilityMonitorTest(true /* isMulticastResolicitEnabled */);
-
-        final List<NeighborSolicitation> nsList = waitForMultipleNeighborSolicitations();
-        final int expectedNudSolicitNum = readNudSolicitNumPostRoamingFromResource();
-        int expectedSize = expectedNudSolicitNum + NUD_MCAST_RESOLICIT_NUM;
-        assertEquals(expectedSize, nsList.size());
-        for (NeighborSolicitation ns : nsList.subList(0, expectedNudSolicitNum)) {
-            assertUnicastNeighborSolicitation(ns, ROUTER_MAC /* dstMac */,
-                    ROUTER_LINK_LOCAL /* dstIp */, ROUTER_LINK_LOCAL /* targetIp */);
-        }
-        for (NeighborSolicitation ns : nsList.subList(expectedNudSolicitNum, nsList.size())) {
-            assertMulticastNeighborSolicitation(ns, ROUTER_LINK_LOCAL /* targetIp */);
-        }
-    }
-
-    @Test
-    public void testIpReachabilityMonitor_mcastResolicitProbeFailed() throws Exception {
-        runIpReachabilityMonitorMcastResolicitProbeFailedTest();
-        assertNotifyNeighborLost(ROUTER_LINK_LOCAL /* targetIp */,
-                NudEventType.NUD_POST_ROAMING_FAILED_CRITICAL);
-    }
-
-    @Test @SignatureRequiredTest(reason = "requires mock callback object")
-    public void testIpReachabilityMonitor_mcastResolicitProbeFailed_legacyCallback()
-            throws Exception {
-        when(mCb.getInterfaceVersion()).thenReturn(12 /* assign an older interface aidl version */);
-
-        runIpReachabilityMonitorMcastResolicitProbeFailedTest();
-        verify(mCb, timeout(TEST_TIMEOUT_MS)).onReachabilityLost(any());
-        verify(mCb, never()).onReachabilityFailure(any());
-    }
-
     @Test
     public void testIpReachabilityMonitor_mcastResolicitProbeReachableWithSameLinkLayerAddress()
             throws Exception {
-        prepareIpReachabilityMonitorTest(true /* isMulticastResolicitEnabled */);
+        prepareIpReachabilityMonitorTest();
 
         final NeighborSolicitation ns = waitForUnicastNeighborSolicitation(ROUTER_MAC /* dstMac */,
                 ROUTER_LINK_LOCAL /* dstIp */, ROUTER_LINK_LOCAL /* targetIp */);
@@ -4292,7 +4254,7 @@ public abstract class IpClientIntegrationTestCommon {
     @Test
     public void testIpReachabilityMonitor_mcastResolicitProbeReachableWithDiffLinkLayerAddress()
             throws Exception {
-        prepareIpReachabilityMonitorTest(true /* isMulticastResolicitEnabled */);
+        prepareIpReachabilityMonitorTest();
 
         final NeighborSolicitation ns = waitForUnicastNeighborSolicitation(ROUTER_MAC /* dstMac */,
                 ROUTER_LINK_LOCAL /* dstIp */, ROUTER_LINK_LOCAL /* targetIp */);
@@ -4664,9 +4626,6 @@ public abstract class IpClientIntegrationTestCommon {
                 .withoutIPv4()
                 .build();
 
-        setFeatureEnabled(NetworkStackUtils.IPCLIENT_MULTICAST_NS_VERSION,
-                true /* isUnsolicitedNsEnabled */);
-        assertTrue(isFeatureEnabled(NetworkStackUtils.IPCLIENT_MULTICAST_NS_VERSION));
         startIpClientProvisioning(config);
 
         doIpv6OnlyProvisioning();
@@ -5216,9 +5175,7 @@ public abstract class IpClientIntegrationTestCommon {
                 x -> x.isIpv6Provisioned()
                         && hasIpv6AddressPrefixedWith(x, prefix)
                         && hasIpv6AddressPrefixedWith(x, prefix1)
-                        // TODO: comment this line to make the test passed, remove the comment later
-                        // once IpClient supports multi-prefixes.
-                        // && hasRouteTo(x, "2001:db8:1::/64", RTN_UNREACHABLE)
+                        && hasRouteTo(x, "2001:db8:1::/64", RTN_UNREACHABLE)
                         && hasRouteTo(x, "2001:db8:2::/64", RTN_UNREACHABLE)
                         // IPv6 link-local, four global delegated IPv6 addresses
                         && x.getLinkAddresses().size() == 5
@@ -5280,14 +5237,15 @@ public abstract class IpClientIntegrationTestCommon {
         mPacketReader.sendResponse(buildDhcp6Reply(packet, iapd.array(), mClientMac,
                 (Inet6Address) mClientIpAddress, false /* rapidCommit */));
         verify(mCb, never()).onProvisioningFailure(any());
+        // IPv6 addresses derived from prefix with 0 preferred/valid lifetime should be deleted.
         verify(mCb, timeout(TEST_TIMEOUT_MS)).onLinkPropertiesChange(argThat(
                 x -> x.isIpv6Provisioned()
-                        && hasIpv6AddressPrefixedWith(x, prefix)
+                        && !hasIpv6AddressPrefixedWith(x, prefix)
                         && hasIpv6AddressPrefixedWith(x, prefix1)
-                        && hasRouteTo(x, "2001:db8:1::/64", RTN_UNREACHABLE)
+                        && !hasRouteTo(x, "2001:db8:1::/64", RTN_UNREACHABLE)
                         && hasRouteTo(x, "2001:db8:2::/64", RTN_UNREACHABLE)
-                        // IPv6 link-local, four global delegated IPv6 addresses
-                        && x.getLinkAddresses().size() == 5
+                        // IPv6 link-local, two global delegated IPv6 addresses with prefix1
+                        && x.getLinkAddresses().size() == 3
         ));
 
         handler.post(() -> renewAlarm.onAlarm());
@@ -5296,7 +5254,8 @@ public abstract class IpClientIntegrationTestCommon {
         packet = getNextDhcp6Packet();
         assertTrue(packet instanceof Dhcp6RenewPacket);
         final List<IaPrefixOption> renewIpos = packet.getPrefixDelegation().ipos;
-        assertEquals(1, renewIpos.size()); // don't renew prefix 2001:db8:1::/64
+        assertEquals(1, renewIpos.size()); // don't renew prefix 2001:db8:1::/64 with 0
+                                           // preferred/valid lifetime
         assertEquals(prefix1, renewIpos.get(0).getIpPrefix());
     }
 
@@ -5336,6 +5295,49 @@ public abstract class IpClientIntegrationTestCommon {
 
         packet = getNextDhcp6Packet(TEST_TIMEOUT_MS);
         assertNull(packet);
+    }
+
+    @Test
+    public void testDhcp6Pd_multipleIaPrefixOptions() throws Exception {
+        final InOrder inOrder = inOrder(mCb);
+        final IpPrefix prefix1 = new IpPrefix("2001:db8:1::/64");
+        final IpPrefix prefix2 = new IpPrefix("2400:db8:100::/64");
+        final IpPrefix prefix3 = new IpPrefix("fd7c:9df8:7f39:dc89::/64");
+        final IaPrefixOption ipo1 = buildIaPrefixOption(prefix1, 4500 /* preferred */,
+                7200 /* valid */);
+        final IaPrefixOption ipo2 = buildIaPrefixOption(prefix2, 5600 /* preferred */,
+                6000 /* valid */);
+        final IaPrefixOption ipo3 = buildIaPrefixOption(prefix3, 7200 /* preferred */,
+                14400 /* valid */);
+        prepareDhcp6PdTest();
+        handleDhcp6Packets(Arrays.asList(ipo1, ipo2, ipo3), 3600 /* t1 */, 4500 /* t2 */,
+                true /* shouldReplyRapidCommit */);
+
+        final ArgumentCaptor<LinkProperties> captor = ArgumentCaptor.forClass(LinkProperties.class);
+        verifyWithTimeout(inOrder, mCb).onProvisioningSuccess(captor.capture());
+        LinkProperties lp = captor.getValue();
+
+        // Sometimes privacy address or route may appear later along with onLinkPropertiesChange
+        // callback, in this case we wait a bit longer to see all of these properties appeared and
+        // then verify if they are what we are looking for.
+        if (lp.getLinkAddresses().size() < 5 || lp.getRoutes().size() < 4) {
+            final CompletableFuture<LinkProperties> lpFuture = new CompletableFuture<>();
+            verifyWithTimeout(inOrder, mCb).onLinkPropertiesChange(argThat(x -> {
+                if (!x.isIpv6Provisioned()) return false;
+                if (x.getLinkAddresses().size() != 5) return false;
+                if (x.getRoutes().size() != 4) return false;
+                lpFuture.complete(x);
+                return true;
+            }));
+            lp = lpFuture.get(TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        }
+        assertNotNull(lp);
+        assertTrue(hasIpv6AddressPrefixedWith(lp, prefix1));
+        assertTrue(hasIpv6AddressPrefixedWith(lp, prefix2));
+        assertFalse(hasIpv6AddressPrefixedWith(lp, prefix3));
+        assertTrue(hasRouteTo(lp, prefix1.toString(), RTN_UNREACHABLE));
+        assertTrue(hasRouteTo(lp, prefix2.toString(), RTN_UNREACHABLE));
+        assertFalse(hasRouteTo(lp, prefix3.toString(), RTN_UNREACHABLE));
     }
 
     @Test
@@ -5395,6 +5397,7 @@ public abstract class IpClientIntegrationTestCommon {
                 mNetd.getProcSysNet(INetd.IPV6, INetd.CONF, mIfaceName, "accept_ra_defrtr"));
         assertEquals(1, acceptRaDefRtr);
     }
+
     private void runDhcpDomainSearchListOptionTest(final String domainName,
             final List<String> domainSearchList, final String expectedDomain) throws Exception {
         when(mResources.getBoolean(R.bool.config_dhcp_client_domain_search_list)).thenReturn(true);

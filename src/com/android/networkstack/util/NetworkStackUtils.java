@@ -197,13 +197,6 @@ public class NetworkStackUtils {
     public static final String IPCLIENT_GRATUITOUS_NA_VERSION = "ipclient_gratuitous_na_version";
 
     /**
-     * Experiment flag to send multicast NS from the global IPv6 GUA to the solicited-node
-     * multicast address based on the default router's IPv6 link-local address, which helps
-     * flush the first-hop routers' neighbor cache entry for the global IPv6 GUA.
-     */
-    public static final String IPCLIENT_MULTICAST_NS_VERSION = "ipclient_multicast_ns_version";
-
-    /**
      * Experiment flag to enable sending Gratuitous APR and Gratuitous Neighbor Advertisement for
      * all assigned IPv4 and IPv6 GUAs after completing L2 roaming.
      */
@@ -217,13 +210,6 @@ public class NetworkStackUtils {
      */
     public static final String IPCLIENT_ACCEPT_IPV6_LINK_LOCAL_DNS_VERSION =
             "ipclient_accept_ipv6_link_local_dns_version";
-
-    /**
-     * Experiment flag to enable "mcast_resolicit" neighbor parameter in IpReachabilityMonitor,
-     * set it to 3 by default.
-     */
-    public static final String IP_REACHABILITY_MCAST_RESOLICIT_VERSION =
-            "ip_reachability_mcast_resolicit_version";
 
     /**
      * Experiment flag to attempt to ignore the on-link IPv6 DNS server which fails to respond to
