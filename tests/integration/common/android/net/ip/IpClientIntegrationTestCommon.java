@@ -779,6 +779,8 @@ public abstract class IpClientIntegrationTestCommon {
             enableRealAlarm("DhcpClient." + mIfaceName + ".KICK");
             // Enable alarm for IPv6 autoconf via SLAAC in IpClient.
             enableRealAlarm("IpClient." + mIfaceName + ".EVENT_IPV6_AUTOCONF_TIMEOUT");
+            // Enable packet retransmit alarm in Dhcp6Client.
+            enableRealAlarm("Dhcp6Client." + mIfaceName + ".KICK");
         }
 
         mIIpClient = makeIIpClient(mIfaceName, mCb);
@@ -5276,7 +5278,7 @@ public abstract class IpClientIntegrationTestCommon {
 
         clearInvocations(mCb);
 
-        // Reply with the requested prefix with preferred/valid lifetime of 0.
+        // Reply with the requested prefix with the same t1/t2/lifetime.
         final IpPrefix prefix = new IpPrefix("2001:db8:1::/64");
         final IaPrefixOption ipo = buildIaPrefixOption(prefix, 3600 /* preferred */,
                 3600 /* valid */);
@@ -5338,6 +5340,73 @@ public abstract class IpClientIntegrationTestCommon {
         assertTrue(hasRouteTo(lp, prefix1.toString(), RTN_UNREACHABLE));
         assertTrue(hasRouteTo(lp, prefix2.toString(), RTN_UNREACHABLE));
         assertFalse(hasRouteTo(lp, prefix3.toString(), RTN_UNREACHABLE));
+    }
+
+    private void runDhcp6PacketWithNoPrefixAvailStatusCodeTest(boolean shouldReplyWithAdvertise)
+            throws Exception {
+        prepareDhcp6PdTest();
+        Dhcp6Packet packet = getNextDhcp6Packet(PACKET_TIMEOUT_MS);
+        assertTrue(packet instanceof Dhcp6SolicitPacket);
+
+        final PrefixDelegation pd = new PrefixDelegation(packet.getIaId(), 0 /* t1 */, 0 /* t2 */,
+                new ArrayList<IaPrefixOption>() /* ipos */, Dhcp6Packet.STATUS_NO_PREFIX_AVAI);
+        final ByteBuffer iapd = pd.build();
+        if (shouldReplyWithAdvertise) {
+            mPacketReader.sendResponse(buildDhcp6Advertise(packet, iapd.array(), mClientMac,
+                    (Inet6Address) mClientIpAddress));
+        } else {
+            mPacketReader.sendResponse(buildDhcp6Reply(packet, iapd.array(), mClientMac,
+                    (Inet6Address) mClientIpAddress, true /* rapidCommit */));
+        }
+
+        // Check if client will ignore Advertise or Reply for Rapid Commit Solicit and
+        // retransmit Solicit.
+        packet = getNextDhcp6Packet(PACKET_TIMEOUT_MS);
+        assertTrue(packet instanceof Dhcp6SolicitPacket);
+    }
+
+    @Test
+    public void testDhcp6AdvertiseWithNoPrefixAvailStatusCode() throws Exception {
+        // Advertise
+        runDhcp6PacketWithNoPrefixAvailStatusCodeTest(true /* shouldReplyWithAdvertise */);
+    }
+
+    @Test
+    public void testDhcp6ReplyForRapidCommitSolicitWithNoPrefixAvailStatusCode() throws Exception {
+        // Reply
+        runDhcp6PacketWithNoPrefixAvailStatusCodeTest(false /* shouldReplyWithAdvertise */);
+    }
+
+    @Test
+    public void testDhcp6ReplyForRequestWithNoPrefixAvailStatusCode() throws Exception {
+        prepareDhcp6PdTest();
+        Dhcp6Packet packet = getNextDhcp6Packet(PACKET_TIMEOUT_MS);
+        assertTrue(packet instanceof Dhcp6SolicitPacket);
+
+        final IpPrefix prefix = new IpPrefix("2001:db8:1::/64");
+        final IaPrefixOption ipo = buildIaPrefixOption(prefix, 4500 /* preferred */,
+                7200 /* valid */);
+        PrefixDelegation pd = new PrefixDelegation(packet.getIaId(), 1000 /* t1 */,
+                2000 /* t2 */, Arrays.asList(ipo));
+        ByteBuffer iapd = pd.build();
+        mPacketReader.sendResponse(buildDhcp6Advertise(packet, iapd.array(), mClientMac,
+                (Inet6Address) mClientIpAddress));
+
+        packet = getNextDhcp6Packet(PACKET_TIMEOUT_MS);
+        assertTrue(packet instanceof Dhcp6RequestPacket);
+
+        // Reply for Request with NoPrefixAvai status code. Not sure if this is reasonable in
+        // practice, but Server can do everything it wants.
+        pd = new PrefixDelegation(packet.getIaId(), 0 /* t1 */, 0 /* t2 */,
+                new ArrayList<IaPrefixOption>() /* ipos */, Dhcp6Packet.STATUS_NO_PREFIX_AVAI);
+        iapd = pd.build();
+        mPacketReader.sendResponse(buildDhcp6Reply(packet, iapd.array(), mClientMac,
+                (Inet6Address) mClientIpAddress, false /* rapidCommit */));
+
+        // Check if client will ignore Reply for Request with NoPrefixAvai status code, and
+        // rollback to SolicitState.
+        packet = getNextDhcp6Packet(PACKET_TIMEOUT_MS);
+        assertTrue(packet instanceof Dhcp6SolicitPacket);
     }
 
     @Test
