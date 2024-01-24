@@ -3407,7 +3407,7 @@ public class ApfTest {
     }
 
     @Test
-    public void testFullApfV4ProgramGeneration() throws IllegalInstructionException {
+    public void testFullApfV4ProgramGenerationIPV6() throws IllegalInstructionException {
         ApfV4Generator gen = new ApfV4Generator(APF_VERSION_4);
         gen.addLoadImmediate(R1, -4);
         gen.addLoadData(R0, 0);
@@ -3556,6 +3556,269 @@ public class ApfTest {
         byte[] program = gen.generate();
         final String programString = toHexString(program).toLowerCase();
         final String referenceProgramHexString = "6bfcb03a01b8120c6b949401e906006b907c01e288a27c01dd88a47c01d888b87c01d388cd7c01ce88e17c01c988e384004008066a0e6bdca401af000600010800060412147a1e016bd88401a300021a1c6b8c7c01a00000686bd4a4018c0006ffffffffffff1a266bc07c018900006bf874017e120c84005408000a17821f1112149c00181fffab0d2a108211446a3239a20506e212507c63456bf47401530a1e52f06bac7c014e00e06bb41a1e7e00000141ffffffff6be868a4012d0006ffffffffffff6bb874012e6bf07401237c001386dd686bd0a401100006ffffffffffff6bc87401110a147a0d3a6b980a267c010300ff6be072f90a366ba87af8858218886a26a2040fff02000000000000000000000000006ba472ddaa0e82d0a6aa0f8c00c9025468a2b60fe212507c6345648788fd6df086dd686a12a28b2600703afffe800000000000002a0079e10abc1539fe80000000000000e01250fffe7c634586006a3aa284024000123c94007d02546a3ea2700800000000000000006a4ea26704190500001a5294006002546a56a23b2020014860486000000000000000006464200148604860000000000000000000646a76a23204030440c01a7a94002b02541a7e94002402546c0082a21a04000000006c0086a204102a0079e10abc153900000000000000006bc472086be4b03a01b87206b03a01b87201";
+        assertEquals(referenceProgramHexString, programString);
+    }
+
+    @Test
+    public void testFullApfV4ProgramGenerationIPV4() throws IllegalInstructionException {
+        ApfV4Generator gen = new ApfV4Generator(APF_VERSION_4);
+        gen.addLoadImmediate(R1, -4);
+        gen.addLoadData(R0, 0);
+        gen.addAdd(1);
+        gen.addStoreData(R0, 0);
+        gen.addLoad16(R0, 12);
+        gen.addLoadImmediate(R1, -108);
+        gen.addJumpIfR0LessThan(0x600, "LABEL_283");
+        gen.addLoadImmediate(R1, -112);
+        gen.addJumpIfR0Equals(0x88a2, "LABEL_283");
+        gen.addJumpIfR0Equals(0x88a4, "LABEL_283");
+        gen.addJumpIfR0Equals(0x88b8, "LABEL_283");
+        gen.addJumpIfR0Equals(0x88cd, "LABEL_283");
+        gen.addJumpIfR0Equals(0x88e1, "LABEL_283");
+        gen.addJumpIfR0Equals(0x88e3, "LABEL_283");
+        gen.addJumpIfR0NotEquals(0x806, "LABEL_109");
+        gen.addLoadImmediate(R0, 14);
+        gen.addLoadImmediate(R1, -36);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("000108000604"), "LABEL_277");
+        gen.addLoad16(R0, 20);
+        gen.addJumpIfR0Equals(0x1, "LABEL_94");
+        gen.addLoadImmediate(R1, -40);
+        gen.addJumpIfR0NotEquals(0x2, "LABEL_277");
+        gen.addLoad32(R0, 28);
+        gen.addLoadImmediate(R1, -116);
+        gen.addJumpIfR0Equals(0x0, "LABEL_283");
+        gen.addLoadImmediate(R0, 0);
+        gen.addLoadImmediate(R1, -44);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("ffffffffffff"), "LABEL_277");
+
+        gen.defineLabel("LABEL_94");
+        gen.addLoadImmediate(R0, 38);
+        gen.addLoadImmediate(R1, -68);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("c0a801b3"), "LABEL_283");
+        gen.addLoadImmediate(R1, -8);
+        gen.addJump("LABEL_277");
+
+        gen.defineLabel("LABEL_109");
+        gen.addLoad16(R0, 12);
+        gen.addJumpIfR0NotEquals(0x800, "LABEL_204");
+        gen.addLoad8(R0, 23);
+        gen.addJumpIfR0NotEquals(0x11, "LABEL_151");
+        gen.addLoad16(R0, 20);
+        gen.addJumpIfR0AnyBitsSet(0x1fff, "LABEL_151");
+        gen.addLoadFromMemory(R1, 13);
+        gen.addLoad16Indexed(R0, 16);
+        gen.addJumpIfR0NotEquals(0x44, "LABEL_151");
+        gen.addLoadImmediate(R0, 50);
+        gen.addAddR1();
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("f683d58f832b"), "LABEL_151");
+        gen.addLoadImmediate(R1, -12);
+        gen.addJump("LABEL_277");
+
+        gen.defineLabel("LABEL_151");
+        gen.addLoad8(R0, 30);
+        gen.addAnd(240);
+        gen.addLoadImmediate(R1, -84);
+        gen.addJumpIfR0Equals(0xe0, "LABEL_283");
+        gen.addLoadImmediate(R1, -76);
+        gen.addLoad32(R0, 30);
+        gen.addJumpIfR0Equals(0xffffffff, "LABEL_283");
+        gen.addLoadImmediate(R1, -80);
+        gen.addJumpIfR0Equals(0xc0a801ff, "LABEL_283");
+        gen.addLoadImmediate(R1, -24);
+        gen.addLoadImmediate(R0, 0);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("ffffffffffff"), "LABEL_277");
+        gen.addLoadImmediate(R1, -72);
+        gen.addJump("LABEL_283");
+        gen.addLoadImmediate(R1, -16);
+        gen.addJump("LABEL_277");
+
+        gen.defineLabel("LABEL_204");
+        gen.addJumpIfR0Equals(0x86dd, "LABEL_225");
+        gen.addLoadImmediate(R0, 0);
+        gen.addLoadImmediate(R1, -48);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("ffffffffffff"), "LABEL_277");
+        gen.addLoadImmediate(R1, -56);
+        gen.addJump("LABEL_283");
+
+        gen.defineLabel("LABEL_225");
+        gen.addLoad8(R0, 20);
+        gen.addJumpIfR0Equals(0x3a, "LABEL_241");
+        gen.addLoadImmediate(R1, -104);
+        gen.addLoad8(R0, 38);
+        gen.addJumpIfR0Equals(0xff, "LABEL_283");
+        gen.addLoadImmediate(R1, -32);
+        gen.addJump("LABEL_277");
+
+        gen.defineLabel("LABEL_241");
+        gen.addLoad8(R0, 54);
+        gen.addLoadImmediate(R1, -88);
+        gen.addJumpIfR0Equals(0x85, "LABEL_283");
+        gen.addJumpIfR0NotEquals(0x88, "LABEL_275");
+        gen.addLoadImmediate(R0, 38);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("ff0200000000000000000000000000"), "LABEL_275");
+        gen.addLoadImmediate(R1, -92);
+        gen.addJump("LABEL_283");
+
+        gen.defineLabel("LABEL_275");
+        gen.addLoadImmediate(R1, -28);
+
+        gen.defineLabel("LABEL_277");
+        gen.addLoadData(R0, 0);
+        gen.addAdd(1);
+        gen.addStoreData(R0, 0);
+        gen.addJump(PASS_LABEL);
+
+        gen.defineLabel("LABEL_283");
+        gen.addLoadData(R0, 0);
+        gen.addAdd(1);
+        gen.addStoreData(R0, 0);
+        gen.addJump(DROP_LABEL);
+
+        byte[] program = gen.generate();
+        final String programString = toHexString(program).toLowerCase();
+        final String referenceProgramHexString = "6bfcb03a01b8120c6b9494010c06006b907c010588a27c010088a47c00fb88b87c00f688cd7c00f188e17c00ec88e384003908066a0e6bdca2d40600010800060412147a18016bd882ca021a1c6b8c7ac900686bd4a2b706ffffffffffff6a266bbca2b204c0a801b36bf872a8120c84005808000a17821e1112149c00171fffab0d2a108210446a3239a20406f683d58f832b6bf4727e0a1e52f06bac7a7be06bb41a1e7e0000006effffffff6bb07e00000063c0a801ff6be868a25106ffffffffffff6bb872536bf072497c001086dd686bd0a23806ffffffffffff6bc8723a0a147a0b3a6b980a267a2eff6be072240a366ba87a23858218886a26a2040fff02000000000000000000000000006ba472086be4b03a01b87206b03a01b87201";
+        assertEquals(referenceProgramHexString, programString);
+    }
+
+    @Test
+    public void testFullApfV4ProgramGenerationNatTKeepAliveV4() throws IllegalInstructionException {
+        ApfV4Generator gen = new ApfV4Generator(APF_VERSION_4);
+        gen.addLoadImmediate(R1, -4);
+        gen.addLoadData(R0, 0);
+        gen.addAdd(1);
+        gen.addStoreData(R0, 0);
+        gen.addLoad16(R0, 12);
+        gen.addLoadImmediate(R1, -108);
+        gen.addJumpIfR0LessThan(0x600, "LABEL_345");
+        gen.addLoadImmediate(R1, -112);
+        gen.addJumpIfR0Equals(0x88a2, "LABEL_345");
+        gen.addJumpIfR0Equals(0x88a4, "LABEL_345");
+        gen.addJumpIfR0Equals(0x88b8, "LABEL_345");
+        gen.addJumpIfR0Equals(0x88cd, "LABEL_345");
+        gen.addJumpIfR0Equals(0x88e1, "LABEL_345");
+        gen.addJumpIfR0Equals(0x88e3, "LABEL_345");
+        gen.addJumpIfR0NotEquals(0x806, "LABEL_115");
+        gen.addLoadImmediate(R0, 14);
+        gen.addLoadImmediate(R1, -36);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("000108000604"), "LABEL_339");
+        gen.addLoad16(R0, 20);
+        gen.addJumpIfR0Equals(0x1, "LABEL_100");
+        gen.addLoadImmediate(R1, -40);
+        gen.addJumpIfR0NotEquals(0x2, "LABEL_339");
+        gen.addLoad32(R0, 28);
+        gen.addLoadImmediate(R1, -116);
+        gen.addJumpIfR0Equals(0x0, "LABEL_345");
+        gen.addLoadImmediate(R0, 0);
+        gen.addLoadImmediate(R1, -44);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("ffffffffffff"), "LABEL_339");
+
+        gen.defineLabel("LABEL_100");
+        gen.addLoadImmediate(R0, 38);
+        gen.addLoadImmediate(R1, -68);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("c0a801be"), "LABEL_345");
+        gen.addLoadImmediate(R1, -8);
+        gen.addJump("LABEL_339");
+
+        gen.defineLabel("LABEL_115");
+        gen.addLoad16(R0, 12);
+        gen.addJumpIfR0NotEquals(0x800, "LABEL_263");
+        gen.addLoad8(R0, 23);
+        gen.addJumpIfR0NotEquals(0x11, "LABEL_157");
+        gen.addLoad16(R0, 20);
+        gen.addJumpIfR0AnyBitsSet(0x1fff, "LABEL_157");
+        gen.addLoadFromMemory(R1, 13);
+        gen.addLoad16Indexed(R0, 16);
+        gen.addJumpIfR0NotEquals(0x44, "LABEL_157");
+        gen.addLoadImmediate(R0, 50);
+        gen.addAddR1();
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("ea42226789c0"), "LABEL_157");
+        gen.addLoadImmediate(R1, -12);
+        gen.addJump("LABEL_339");
+
+        gen.defineLabel("LABEL_157");
+        gen.addLoad8(R0, 30);
+        gen.addAnd(240);
+        gen.addLoadImmediate(R1, -84);
+        gen.addJumpIfR0Equals(0xe0, "LABEL_345");
+        gen.addLoadImmediate(R1, -76);
+        gen.addLoad32(R0, 30);
+        gen.addJumpIfR0Equals(0xffffffff, "LABEL_345");
+        gen.addLoadImmediate(R1, -80);
+        gen.addJumpIfR0Equals(0xc0a801ff, "LABEL_345");
+        gen.addLoad8(R0, 23);
+        gen.addJumpIfR0NotEquals(0x11, "LABEL_243");
+        gen.addLoadImmediate(R0, 26);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("6b7a1f1fc0a801be"), "LABEL_243");
+        gen.addLoadFromMemory(R0, 13);
+        gen.addAdd(8);
+        gen.addSwap();
+        gen.addLoad16(R0, 16);
+        gen.addNeg(R1);
+        gen.addAddR1();
+        gen.addJumpIfR0NotEquals(0x1, "LABEL_243");
+        gen.addLoadFromMemory(R0, 13);
+        gen.addAdd(14);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("1194ceca"), "LABEL_243");
+        gen.addAdd(8);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("ff"), "LABEL_243");
+        gen.addLoadImmediate(R1, -128);
+        gen.addJump("LABEL_345");
+
+        gen.defineLabel("LABEL_243");
+        gen.addLoadImmediate(R1, -24);
+        gen.addLoadImmediate(R0, 0);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("ffffffffffff"), "LABEL_339");
+        gen.addLoadImmediate(R1, -72);
+        gen.addJump("LABEL_345");
+        gen.addLoadImmediate(R1, -16);
+        gen.addJump("LABEL_339");
+
+        gen.defineLabel("LABEL_263");
+        gen.addJumpIfR0Equals(0x86dd, "LABEL_284");
+        gen.addLoadImmediate(R0, 0);
+        gen.addLoadImmediate(R1, -48);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("ffffffffffff"), "LABEL_339");
+        gen.addLoadImmediate(R1, -56);
+        gen.addJump("LABEL_345");
+
+        gen.defineLabel("LABEL_284");
+        gen.addLoad8(R0, 20);
+        gen.addJumpIfR0Equals(0x0, "LABEL_339");
+        gen.addJumpIfR0Equals(0x3a, "LABEL_303");
+        gen.addLoadImmediate(R1, -104);
+        gen.addLoad8(R0, 38);
+        gen.addJumpIfR0Equals(0xff, "LABEL_345");
+        gen.addLoadImmediate(R1, -32);
+        gen.addJump("LABEL_339");
+
+        gen.defineLabel("LABEL_303");
+        gen.addLoad8(R0, 54);
+        gen.addLoadImmediate(R1, -88);
+        gen.addJumpIfR0Equals(0x85, "LABEL_345");
+        gen.addJumpIfR0NotEquals(0x88, "LABEL_337");
+        gen.addLoadImmediate(R0, 38);
+        gen.addJumpIfBytesAtR0NotEqual(hexStringToByteArray("ff0200000000000000000000000000"), "LABEL_337");
+        gen.addLoadImmediate(R1, -92);
+        gen.addJump("LABEL_345");
+
+        gen.defineLabel("LABEL_337");
+        gen.addLoadImmediate(R1, -28);
+
+        gen.defineLabel("LABEL_339");
+        gen.addLoadData(R0, 0);
+        gen.addAdd(1);
+        gen.addStoreData(R0, 0);
+        gen.addJump(PASS_LABEL);
+
+        gen.defineLabel("LABEL_345");
+        gen.addLoadData(R0, 0);
+        gen.addAdd(1);
+        gen.addStoreData(R0, 0);
+        gen.addJump(DROP_LABEL);
+
+        byte[] program = gen.generate();
+        final String programString = toHexString(program).toLowerCase();
+        final String referenceProgramHexString = "6bfcb03a01b8120c6b9494014a06006b907c014388a27c013e88a47c013988b87c013488cd7c012f88e17c012a88e384003f08066a0e6bdca40110000600010800060412147a1c016bd884010400021a1c6b8c7c01010000686bd4a2ef06ffffffffffff6a266bbca2ea04c0a801be6bf872e0120c84008d08000a17821e1112149c00171fffab0d2a108210446a3239a20406ea42226789c06bf472b60a1e52f06bac7ab3e06bb41a1e7e000000a6ffffffff6bb07e0000009bc0a801ff0a178230116a1aa223086b7a1f1fc0a801beaa0d3a08aa221210ab2139821501aa0d3a0ea20a041194ceca3a08a20401ff6b8072666be868a25406ffffffffffff6bb872566bf0724c7c001086dd686bd0a23b06ffffffffffff6bc8723d0a147a32007a0b3a6b980a267a2eff6be072240a366ba87a23858218886a26a2040fff02000000000000000000000000006ba472086be4b03a01b87206b03a01b87201";
         assertEquals(referenceProgramHexString, programString);
     }
 }
