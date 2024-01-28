@@ -245,8 +245,6 @@ static jboolean com_android_server_ApfTest_dropsAllPackets(
     return true;
 }
 
-static char output_buffer[512];
-
 static jobjectArray com_android_server_ApfTest_disassembleApf(
     JNIEnv* env, jclass, jbyteArray jprogram) {
     uint32_t program_len = env->GetArrayLength(jprogram);
@@ -256,9 +254,7 @@ static jobjectArray com_android_server_ApfTest_disassembleApf(
                             reinterpret_cast<jbyte*>(buf.data()));
     std::vector<std::string> disassemble_output;
     for (uint32_t pc = 0; pc < program_len;) {
-         pc = apf_disassemble(buf.data(), program_len, pc, output_buffer,
-                              sizeof(output_buffer) / sizeof(output_buffer[0]));
-         disassemble_output.emplace_back(output_buffer);
+         disassemble_output.emplace_back(apf_disassemble(buf.data(), program_len, &pc));
     }
     jclass stringClass = env->FindClass("java/lang/String");
     jobjectArray disassembleOutput =
@@ -288,7 +284,7 @@ jbyteArray com_android_server_ApfTest_getTransmittedPacket(JNIEnv* env,
 
 void com_android_server_ApfTest_resetTransmittedPacketMemory(JNIEnv, jclass) {
     apf_test_tx_packet_len = 0;
-    memset(apf_test_buffer, 0, APF_TX_BUFFER_SIZE);
+    memset(apf_test_buffer, 0xff, sizeof(apf_test_buffer));
 }
 
 extern "C" jint JNI_OnLoad(JavaVM* vm, void*) {
