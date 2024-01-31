@@ -303,14 +303,13 @@ class ApfV5Test {
                 encodeInstruction(21, 1, 1), 39,
                 encodeInstruction(21, 1, 1), 40
         ), program)
-        // TODO: add back disassembling test check after we update the apf_disassembler
-//        assertContentEquals(arrayOf(
-//                "       0: ewrite1 r0",
-//                "       2: ewrite2 r0",
-//                "       4: ewrite4 r0",
-//                "       6: ewrite1 r1",
-//                "       8: ewrite2 r1",
-//                "      10: ewrite4 r1"), ApfJniUtils.disassembleApf(program))
+        assertContentEquals(listOf(
+                "0: ewrite1     r0",
+                "2: ewrite2     r0",
+                "4: ewrite4     r0",
+                "6: ewrite1     r1",
+                "8: ewrite2     r1",
+                "10: ewrite4     r1"), ApfJniUtils.disassembleApf(program).map { it.trim() })
 
         gen = ApfV4Generator(MIN_APF_VERSION_IN_DEV)
         gen.addDataCopy(0, 10)
@@ -323,10 +322,10 @@ class ApfV5Test {
                 encodeInstruction(25, 2, 0),
                 0x03.toByte(), 0xe8.toByte(), 0xff.toByte(),
         ), program)
-        // TODO: add back disassembling test check after we update the apf_disassembler
-//        assertContentEquals(arrayOf(
-//                "       0: dcopy 0, 5",
-//                "       3: pcopy 1000, 255"), ApfJniUtils.disassembleApf(program))
+        assertContentEquals(listOf(
+                "0: dcopy       0, 10",
+                "2: dcopy       1, 5",
+                "5: pcopy       1000, 255"), ApfJniUtils.disassembleApf(program).map { it.trim() })
 
         gen = ApfV4Generator(MIN_APF_VERSION_IN_DEV)
         gen.addPacketCopyFromR0LenR1()
