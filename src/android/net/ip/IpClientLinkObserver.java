@@ -30,6 +30,7 @@ import static com.android.net.module.util.netlink.NetlinkConstants.RTPROT_RA;
 import static com.android.net.module.util.netlink.NetlinkConstants.RT_SCOPE_UNIVERSE;
 import static com.android.networkstack.util.NetworkStackUtils.IPCLIENT_ACCEPT_IPV6_LINK_LOCAL_DNS_VERSION;
 import static com.android.networkstack.util.NetworkStackUtils.IPCLIENT_PARSE_NETLINK_EVENTS_FORCE_DISABLE;
+import static com.android.networkstack.util.NetworkStackUtils.IPCLIENT_POPULATE_LINK_ADDRESS_LIFETIME_VERSION;
 
 import android.app.AlarmManager;
 import android.content.Context;
@@ -160,8 +161,9 @@ public class IpClientLinkObserver implements NetworkObserver {
     private final Handler mHandler;
     private final IpClient.Dependencies mDependencies;
     private final String mClatInterfaceName;
-    private final MyNetlinkMonitor mNetlinkMonitor;
+    private final IpClientNetlinkMonitor mNetlinkMonitor;
     private final boolean mNetlinkEventParsingEnabled;
+    private final boolean mPopulateLinkAddressLifetime;
 
     private boolean mClatInterfaceExists;
 
@@ -194,7 +196,9 @@ public class IpClientLinkObserver implements NetworkObserver {
         mDependencies = deps;
         mNetlinkEventParsingEnabled = deps.isFeatureNotChickenedOut(context,
                 IPCLIENT_PARSE_NETLINK_EVENTS_FORCE_DISABLE);
-        mNetlinkMonitor = new MyNetlinkMonitor(h, log, mTag);
+        mPopulateLinkAddressLifetime = deps.isFeatureEnabled(context,
+                IPCLIENT_POPULATE_LINK_ADDRESS_LIFETIME_VERSION);
+        mNetlinkMonitor = new IpClientNetlinkMonitor(h, log, mTag);
         mHandler.post(() -> {
             if (!mNetlinkMonitor.start()) {
                 Log.wtf(mTag, "Fail to start NetlinkMonitor.");
@@ -427,10 +431,10 @@ public class IpClientLinkObserver implements NetworkObserver {
      * Simple NetlinkMonitor. Listen for netlink events from kernel.
      * All methods except the constructor must be called on the handler thread.
      */
-    private class MyNetlinkMonitor extends NetlinkMonitor {
+    private class IpClientNetlinkMonitor extends NetlinkMonitor {
         private final Handler mHandler;
 
-        MyNetlinkMonitor(Handler h, SharedLog log, String tag) {
+        IpClientNetlinkMonitor(Handler h, SharedLog log, String tag) {
             super(h, log, tag, OsConstants.NETLINK_ROUTE,
                     !mNetlinkEventParsingEnabled
                         ? NetlinkConstants.RTMGRP_ND_USEROPT
@@ -634,9 +638,13 @@ public class IpClientLinkObserver implements NetworkObserver {
 
         // The preferred/valid in ifa_cacheinfo expressed in units of seconds, convert
         // it to milliseconds for deprecationTime or expirationTime used in LinkAddress.
-        private static long getDeprecationOrExpirationTime(
-                @Nullable final StructIfacacheInfo cacheInfo, long now, boolean deprecationTime) {
-            if (cacheInfo == null) return LinkAddress.LIFETIME_UNKNOWN;
+        // If the experiment flag is not enabled, LinkAddress.LIFETIME_UNKNOWN is retuend,
+        // the same as before.
+        private long getDeprecationOrExpirationTime(@Nullable final StructIfacacheInfo cacheInfo,
+                long now, boolean deprecationTime) {
+            if (!mPopulateLinkAddressLifetime || (cacheInfo == null)) {
+                return LinkAddress.LIFETIME_UNKNOWN;
+            }
             final long lifetime = deprecationTime ? cacheInfo.preferred : cacheInfo.valid;
             return (lifetime == Integer.toUnsignedLong(INFINITE_LEASE))
                     ? LinkAddress.LIFETIME_PERMANENT
