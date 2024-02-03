@@ -16,6 +16,8 @@
 
 package android.net.apf;
 
+import static android.net.apf.ApfV4Generator.Rbit.Rbit0;
+import static android.net.apf.ApfV4Generator.Rbit.Rbit1;
 import static android.net.apf.ApfV4Generator.Register.R0;
 import static android.net.apf.ApfV4Generator.Register.R1;
 
@@ -161,12 +163,17 @@ public class ApfV4Generator {
         }
     }
     public enum Register {
-        R0(0),
-        R1(1);
+        R0,
+        R1;
+    }
+
+    public enum Rbit {
+        Rbit0(0),
+        Rbit1(1);
 
         final int value;
 
-        private Register(int value) {
+        Rbit(int value) {
             this.value = value;
         }
     }
@@ -296,7 +303,7 @@ public class ApfV4Generator {
 
     class Instruction {
         private final byte mOpcode;   // A "Opcode" value.
-        private final byte mRegister; // A "Register" value.
+        private final Rbit mRbit; // A "Rbit" value.
         public final List<IntImmediate> mIntImms = new ArrayList<>();
         // When mOpcode is a jump:
         private int mTargetLabelSize;
@@ -308,9 +315,18 @@ public class ApfV4Generator {
         // Offset in bytes from the beginning of this program. Set by {@link ApfGenerator#generate}.
         int offset;
 
-        Instruction(Opcodes opcode, Register register) {
+        Instruction(Opcodes opcode, Rbit rbit) {
             mOpcode = (byte) opcode.value;
-            mRegister = (byte) register.value;
+            mRbit = rbit;
+        }
+
+        Instruction(Opcodes opcode, Register register) {
+            this(opcode, register == R0 ? Rbit0 : Rbit1);
+        }
+
+        Instruction(ExtendedOpcodes extendedOpcodes, Rbit rbit) {
+            this(Opcodes.EXT, rbit);
+            addUnsigned(extendedOpcodes.value);
         }
 
         Instruction(ExtendedOpcodes extendedOpcodes, Register register) {
@@ -482,7 +498,7 @@ public class ApfV4Generator {
          */
         private byte generateInstructionByte() {
             int sizeField = generateImmSizeField();
-            return (byte)((mOpcode << 3) | (sizeField << 1) | mRegister);
+            return (byte) ((mOpcode << 3) | (sizeField << 1) | (byte) mRbit.value);
         }
 
         /**
@@ -999,8 +1015,8 @@ public class ApfV4Generator {
      * Add an instruction to the end of the program to let the program immediately return PASS.
      */
     public ApfV4Generator addPass() {
-        // PASS requires using R0 because it shares opcode with DROP
-        return append(new Instruction(Opcodes.PASSDROP));
+        // PASS requires using Rbit0 because it shares opcode with DROP
+        return append(new Instruction(Opcodes.PASSDROP, Rbit0));
     }
 
     static void checkRange(@NonNull String variableName, long value, long lowerBound,
