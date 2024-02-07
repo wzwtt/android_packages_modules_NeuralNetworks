@@ -48,6 +48,9 @@ aidl_interface {
         cpp: {
             enabled: false,
         },
+        rust: {
+            enabled: false,
+        },
     },
 
     visibility: [
@@ -160,6 +163,9 @@ aidl_interface {
         cpp: {
             enabled: false,
         },
+        rust: {
+            enabled: false,
+        },
     },
     imports: ["ipmemorystore-aidl-interfaces-V10"],
     // TODO: have tethering depend on networkstack-client and set visibility to private
@@ -202,6 +208,10 @@ aidl_interface {
             version: "20",
             imports: ["ipmemorystore-aidl-interfaces-V10"],
         },
+        {
+            version: "21",
+            imports: ["ipmemorystore-aidl-interfaces-V10"],
+        },
 
     ],
     frozen: true,
@@ -213,7 +223,7 @@ java_library {
     min_sdk_version: "30",
     static_libs: [
         "ipmemorystore-aidl-interfaces-V10-java",
-        "networkstack-aidl-interfaces-V20-java",
+        "networkstack-aidl-interfaces-V21-java",
     ],
     visibility: ["//packages/modules/NetworkStack:__subpackages__"],
     apex_available: [
