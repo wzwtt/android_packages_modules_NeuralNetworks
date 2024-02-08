@@ -15,13 +15,15 @@
  */
 package android.net.apf
 
+import android.net.apf.ApfTestUtils.MIN_PKT_SIZE
+import android.net.apf.ApfTestUtils.assertPass
 import android.net.apf.ApfV4Generator.IllegalInstructionException
 import android.net.apf.ApfV4Generator.MIN_APF_VERSION
+import android.net.apf.ApfV4Generator.MIN_APF_VERSION_IN_DEV
 import android.net.apf.ApfV4Generator.Register.R0
 import android.net.apf.ApfV4Generator.Register.R1
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
-import java.lang.IllegalArgumentException
 import kotlin.test.assertContentEquals
 import kotlin.test.assertFailsWith
 import org.junit.Test
@@ -284,9 +286,11 @@ class ApfV5Test {
                 0x03.toByte(), 0xe8.toByte(), 0xff.toByte(),
         ), program)
         assertContentEquals(listOf(
-                "0: dcopy       0, 10",
-                "2: dcopy       1, 5",
-                "5: pcopy       1000, 255"), ApfJniUtils.disassembleApf(program).map { it.trim() })
+                "0: dcopy       src=0, len=10",
+                "2: dcopy       src=1, len=5",
+                "5: pcopy       src=1000, len=255"
+        ),
+        ApfJniUtils.disassembleApf(program).map { it.trim() })
 
         gen = ApfV6Generator()
         gen.addDataCopyFromR0(5)
@@ -301,10 +305,10 @@ class ApfV5Test {
                 encodeInstruction(21, 1, 0), 42,
         ), program)
         assertContentEquals(listOf(
-            "0: edatacopy    r0, 5",
-            "3: epktcopy     r0, 5",
-            "6: edatacopy    r0, r1",
-            "8: epktcopy     r0, r1"), ApfJniUtils.disassembleApf(program).map{ it.trim() })
+            "0: edatacopy    src=r0, len=5",
+            "3: epktcopy     src=r0, len=5",
+            "6: edatacopy    src=r0, len=r1",
+            "8: epktcopy     src=r0, len=r1"), ApfJniUtils.disassembleApf(program).map{ it.trim() })
 
         gen = ApfV6Generator()
         gen.addJumpIfBytesAtR0Equal(byteArrayOf('a'.code.toByte()), ApfV4Generator.DROP_LABEL)
@@ -340,6 +344,20 @@ class ApfV5Test {
         ) + qnames + byteArrayOf(
                 encodeInstruction(21, 1, 1), 44, 1,
         ) + qnames, program)
+    }
+
+    @Test
+    fun testWriteToTxBuffer() {
+        val gen = ApfV6Generator()
+        gen.addAllocate(74)
+        gen.addWriteU8(0x01)
+        gen.addWriteU16(0x0102)
+        gen.addWriteU32(0x01020304)
+        gen.addTransmit()
+        val program = gen.generate()
+        assertPass(MIN_APF_VERSION_IN_DEV, program, ByteArray(MIN_PKT_SIZE))
+        assertContentEquals(byteArrayOf(0x01, 0x01, 0x02, 0x01, 0x02, 0x03, 0x04),
+          ApfJniUtils.getTransmittedPacket())
     }
 
     private fun encodeInstruction(opcode: Int, immLength: Int, register: Int): Byte {
