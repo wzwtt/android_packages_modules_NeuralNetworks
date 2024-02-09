@@ -36,6 +36,9 @@ import org.junit.runner.RunWith
 @SmallTest
 class ApfV5Test {
 
+    private val testPacket = byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8,
+                                         9, 10, 11, 12, 13, 14, 15, 16)
+
     @Test
     fun testDataInstructionMustComeFirst() {
         var gen = ApfV6Generator()
@@ -286,9 +289,9 @@ class ApfV5Test {
                 0x03.toByte(), 0xe8.toByte(), 0xff.toByte(),
         ), program)
         assertContentEquals(listOf(
-                "0: dcopy       src=0, len=10",
-                "2: dcopy       src=1, len=5",
-                "5: pcopy       src=1000, len=255"
+                "0: datacopy    src=0, len=10",
+                "2: datacopy    src=1, len=5",
+                "5: pktcopy     src=1000, len=255"
         ),
         ApfJniUtils.disassembleApf(program).map { it.trim() })
 
@@ -331,8 +334,8 @@ class ApfV5Test {
                 encodeInstruction(21, 1, 1), 43, 1, 0x0c.toByte(),
         ) + qnames, program)
         assertContentEquals(listOf(
-            "0: jdnsqne     r0, DROP, 12, 014101420000",
-            "10: jdnsqeq     r0, DROP, 12, 014101420000"),
+            "0: jdnsqne     r0, DROP, 12, (1)A(1)B(0)(0)",
+            "10: jdnsqeq     r0, DROP, 12, (1)A(1)B(0)(0)"),
             ApfJniUtils.disassembleApf(program).map{ it.trim() })
 
         gen = ApfV6Generator()
@@ -344,20 +347,38 @@ class ApfV5Test {
         ) + qnames + byteArrayOf(
                 encodeInstruction(21, 1, 1), 44, 1,
         ) + qnames, program)
+        assertContentEquals(listOf(
+            "0: jdnsane     r0, DROP, (1)A(1)B(0)(0)",
+            "9: jdnsaeq     r0, DROP, (1)A(1)B(0)(0)"),
+            ApfJniUtils.disassembleApf(program).map{ it.trim() })
     }
 
     @Test
     fun testWriteToTxBuffer() {
-        val gen = ApfV6Generator()
-        gen.addAllocate(74)
-        gen.addWriteU8(0x01)
-        gen.addWriteU16(0x0102)
-        gen.addWriteU32(0x01020304)
-        gen.addTransmit()
-        val program = gen.generate()
+        val program = ApfV6Generator()
+            .addAllocate(74)
+            .addWriteU8(0x01)
+            .addWriteU16(0x0102)
+            .addWriteU32(0x01020304)
+            .addTransmit()
+            .generate()
         assertPass(MIN_APF_VERSION_IN_DEV, program, ByteArray(MIN_PKT_SIZE))
         assertContentEquals(byteArrayOf(0x01, 0x01, 0x02, 0x01, 0x02, 0x03, 0x04),
           ApfJniUtils.getTransmittedPacket())
+    }
+
+    @Test
+    fun testCopyToTxBuffer() {
+        val program = ApfV6Generator()
+            .addData(byteArrayOf(33, 34, 35))
+            .addAllocate(74)
+            .addDataCopy(2, 2)
+            .addPacketCopy(0, 1)
+            .addPacketCopy(1, 2)
+            .addTransmit()
+            .generate()
+        assertPass(MIN_APF_VERSION_IN_DEV, program, testPacket)
+        assertContentEquals(byteArrayOf(33, 34, 1, 2, 3), ApfJniUtils.getTransmittedPacket())
     }
 
     private fun encodeInstruction(opcode: Int, immLength: Int, register: Int): Byte {
